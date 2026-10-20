@@ -1,0 +1,68 @@
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb-dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=testwigr
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo-express-dev
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=admin
+    depends_on:
+      - mongodb
+    networks:
+      - dev-network
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: testwigr-app-dev
+    depends_on:
+      - mongodb
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DATA_MONGODB_HOST=mongodb
+      - SPRING_DATA_MONGODB_PORT=27017
+      - SPRING_DATA_MONGODB_DATABASE=testwigr
+      - APP_JWT_SECRET=dev_secret_key_for_jwt_tokens
+      - APP_JWT_EXPIRATION=86400000
+      - JAVA_OPTS=-Xms256m -Xmx512m -Dspring.profiles.active=dev
+    volumes:
+      - ../src:/app/src:ro
+      - gradle_cache:/root/.gradle
+    networks:
+      - dev-network
+    restart: unless-stopped
+
+networks:
+  dev-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  gradle_cache:
+    driver: local

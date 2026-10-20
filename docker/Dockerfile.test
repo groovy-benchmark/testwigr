@@ -1,0 +1,72 @@
+# Dockerfile.test - Specialized environment for running Testwigr tests
+
+# Start with JDK image since we need the full development kit for testing
+FROM eclipse-temurin:21-jdk-alpine
+
+# Add metadata for better container management
+LABEL maintainer="testwigr-team@example.com"
+LABEL description="Test environment for Testwigr application"
+LABEL version="1.0"
+
+# Set working directory
+WORKDIR /app
+
+# Install additional tools needed for testing
+RUN apk --no-cache add \
+    curl \
+    wget \
+    bash \
+    git \
+    # MongoDB client for test database interactions
+    mongodb-tools \
+    # Useful for troubleshooting
+    busybox-extras \
+    # Time synchronization to avoid test timing issues
+    tzdata
+
+# Set timezone to ensure consistent test behavior
+ENV TZ=UTC
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Copy Gradle wrapper files first to leverage Docker caching
+COPY gradle/ /app/gradle/
+COPY gradlew build.gradle settings.gradle ./
+
+# Make gradlew executable
+RUN chmod +x ./gradlew
+
+# Download dependencies in a separate layer for better caching
+# This ensures we don't need to re-download dependencies if only code changes
+RUN ./gradlew dependencies --no-daemon
+
+# Copy the project source code
+COPY src/ /app/src/
+
+# Copy test scripts
+COPY scripts/start-test-db.sh scripts/stop-test-db.sh ./scripts/
+
+# Make scripts executable
+RUN chmod +x ./scripts/start-test-db.sh ./scripts/stop-test-db.sh
+
+# Copy test configuration files
+COPY docker/docker-compose-test.yml ./docker/
+
+# Set environment variables for testing
+ENV SPRING_PROFILES_ACTIVE=test
+ENV GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true"
+ENV TEST_MONGODB_URI="mongodb://mongodb-test:27017/testdb"
+
+# Configure JVM for efficient test execution in containers
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=70.0 -XX:+UseParallelGC -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20"
+
+# Health check to ensure test container is responsive
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
+    CMD wget -q --spider http://localhost:8080/actuator/health || exit 1
+
+# Define volume for test reports
+VOLUME ["/app/build/reports", "/app/build/test-results"]
+
+# The entry point runs all tests by default
+# Pass arguments to this container to run specific test sets
+ENTRYPOINT ["./gradlew"]
+CMD ["test"]

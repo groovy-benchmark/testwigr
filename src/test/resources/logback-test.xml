@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/base.xml"/>
+    
+    <!-- Configure patterns - simpler for tests -->
+    <property name="CONSOLE_LOG_PATTERN" value="%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+    
+    <!-- Console appender configuration -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <charset>utf8</charset>
+        </encoder>
+    </appender>
+    
+    <!-- Test file appender - keep separate from production logs -->
+    <appender name="TEST_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/testwigr-test.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/testwigr-test.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>5</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <charset>utf8</charset>
+        </encoder>
+    </appender>
+    
+    <!-- Set default logging levels -->
+    <root level="WARN">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="TEST_FILE"/>
+    </root>
+    
+    <!-- Project specific logging -->
+    <logger name="com.example.testwigr" level="DEBUG"/>
+    
+    <!-- Test framework logging -->
+    <logger name="org.springframework.test" level="INFO"/>
+    <logger name="org.springframework.boot.test" level="INFO"/>
+    
+    <!-- MongoDB logging for tests -->
+    <logger name="org.springframework.data.mongodb" level="INFO"/>
+    <logger name="org.mongodb.driver" level="WARN"/>
+    
+    <!-- Security related logging -->
+    <logger name="org.springframework.security" level="INFO"/>
+    
+    <!-- Spock framework logging -->
+    <logger name="spock" level="INFO"/>
+    
+    <!-- Suppress noisy logs during tests -->
+    <logger name="org.springframework.context" level="WARN"/>
+    <logger name="org.springframework.beans" level="WARN"/>
+    <logger name="org.springframework.web" level="WARN"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+    <logger name="org.hibernate" level="WARN"/>
+    
+    <!-- Show test execution information -->
+    <logger name="org.springframework.test.context.TestContextManager" level="INFO"/>
+</configuration>
